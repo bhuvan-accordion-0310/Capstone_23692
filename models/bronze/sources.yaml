@@ -1,0 +1,45 @@
+version: 2
+
+sources:
+  - name: landing
+    database: CT_BHUVAN_JAMBHULKAR_DB
+    schema: CAPSTONE_BHUVAN
+
+    config:
+      freshness:
+        warn_after:
+          count: 24
+          period: hour
+        error_after:
+          count: 48
+          period: hour
+
+    tables:
+
+      - name: EXT_CAMPAIGN_DATA
+        config:
+          loaded_at_field: "TO_TIMESTAMP(value:start_date::string)"
+
+      - name: EXT_CUSTOMER_DATA
+        config:
+          loaded_at_field: "TO_TIMESTAMP(value:last_modified_date::string)"
+
+      - name: EXT_EMPLOYEE_DATA
+        config:
+          loaded_at_field: "TO_TIMESTAMP(value:last_modified_date::string)"
+
+      - name: EXT_ORDERS_DATA
+        config:
+          loaded_at_field: "TO_TIMESTAMP(value:order_date::string)"
+
+      - name: EXT_PRODUCT_DATA
+        config:
+          loaded_at_field: "TO_TIMESTAMP(value:last_modified_date::string)"
+
+      - name: EXT_STORE_DATA
+        config:
+          loaded_at_field: "TO_TIMESTAMP(value:last_modified_date::string)"
+
+      - name: EXT_SUPPLIER_DATA
+        config:
+          loaded_at_field: "TO_TIMESTAMP(value:last_modified_date::string)"
