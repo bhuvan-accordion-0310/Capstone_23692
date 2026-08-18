@@ -217,7 +217,7 @@ deduplicated as (
     from employee_source
 
     qualify row_number() over (
-        partition by employee_id, source_snapshot_date
+        partition by employee_id
         order by
             _loaded_at desc,
             _source_file desc
@@ -274,3 +274,5 @@ select
     _batch_id
 
 from deduplicated
+
+where employee_id is not null

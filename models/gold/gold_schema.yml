@@ -7,200 +7,308 @@ models:
   # ============================================================
 
   - name: dim_date
+
     description: >
       Date dimension containing a complete, gap-free calendar
       required for reporting and time-based analysis.
+
     columns:
+
       - name: date_key
-        description: Surrogate-style calendar key in YYYYMMDD format.
+        description: >
+          Surrogate-style calendar key in YYYYMMDD format.
         tests:
           - not_null
           - unique
+
       - name: full_date
-        description: Calendar date represented by the date dimension.
+        description: >
+          Calendar date represented by the date dimension.
         tests:
           - not_null
           - unique
+
       - name: year
-        description: Calendar year of the date.
+        description: >
+          Calendar year of the date.
+
       - name: quarter
-        description: Calendar quarter of the date.
+        description: >
+          Calendar quarter of the date.
+
       - name: month
-        description: Calendar month of the date.
+        description: >
+          Calendar month of the date.
+
       - name: week
-        description: Week number of the date.
+        description: >
+          Week number of the date.
+
       - name: day_of_week
-        description: Day of week associated with the date.
+        description: >
+          Day of week associated with the date.
+
       - name: holiday_flag
-        description: Indicates whether the date is recognized as a holiday.
+        description: >
+          Indicates whether the date is recognized as a holiday.
+
       - name: season
-        description: Season associated with the calendar date.
+        description: >
+          Season associated with the calendar date.
+
 
   # ============================================================
   # DIM_MARKETING_CAMPAIGN
   # ============================================================
 
   - name: dim_marketing_campaign
+
     description: >
       Marketing campaign dimension containing campaign identifiers,
       audience segment, budget, duration, source ROI and campaign
       start/end dates. The final attributed-sales ROI is calculated
       in fact_marketing_performance.
+
     columns:
+
       - name: campaign_key
-        description: Surrogate key generated from the natural campaign ID.
+        description: >
+          Surrogate key generated from the natural campaign ID.
         tests:
           - not_null
           - unique
+
       - name: campaign_id
-        description: Natural identifier of the marketing campaign.
+        description: >
+          Natural identifier of the marketing campaign.
         tests:
           - not_null
           - unique
+
+      - name: campaign_name
+        description: >
+          Name of the marketing campaign.
+
       - name: target_audience_segment
         description: >
           Audience segment targeted by the campaign, sourced from
-          silver_campaigns.demographics.
+          campaign demographic information.
+
       - name: budget
-        description: Campaign budget.
+        description: >
+          Campaign budget.
+
       - name: total_cost
-        description: Actual total campaign cost from source.
+        description: >
+          Actual total campaign cost from source.
+
       - name: total_revenue
-        description: Actual total campaign revenue from source.
+        description: >
+          Actual total campaign revenue from source.
+
       - name: duration
-        description: Campaign duration in days.
+        description: >
+          Campaign duration in days.
+
       - name: roi
         description: >
           Source ROI value from Silver. This is not the final
           attributed-sales ROI.
+
       - name: start_date
-        description: Date on which the marketing campaign begins.
+        description: >
+          Date on which the marketing campaign begins.
         tests:
           - not_null
+
       - name: end_date
-        description: Date on which the marketing campaign ends.
+        description: >
+          Date on which the marketing campaign ends.
         tests:
           - not_null
+
 
   # ============================================================
   # DIM_PRODUCTS
   # ============================================================
 
   - name: dim_products
+
     description: >
       Product dimension containing reporting-ready product
       attributes and the product surrogate key used by Gold facts.
       Sourced from the latest snapshot per product in
-      silver_product_history_data (silver_products does not carry
-      supplier_id/brand/color/size).
+      silver_product_history_data.
+
     columns:
+
       - name: product_key
-        description: Surrogate key generated from the natural product ID.
+        description: >
+          Surrogate key generated from the natural product ID.
         tests:
           - not_null
           - unique
+
       - name: product_id
-        description: Natural identifier of the product.
+        description: >
+          Natural identifier of the product.
         tests:
           - not_null
           - unique
+
       - name: product_name
-        description: Cleaned product name.
+        description: >
+          Cleaned product name.
+
       - name: category
-        description: High-level product category.
+        description: >
+          High-level product category.
+
       - name: subcategory
-        description: Product subcategory.
+        description: >
+          Product subcategory.
+
       - name: product_line
-        description: Product line.
+        description: >
+          Product line.
+
       - name: brand
-        description: Product brand.
+        description: >
+          Product brand.
+
       - name: color
-        description: Product color.
+        description: >
+          Product color.
+
       - name: size
-        description: Product size.
+        description: >
+          Product size.
+
       - name: unit_price
-        description: Selling price per unit.
+        description: >
+          Selling price per unit.
+
       - name: cost_price
-        description: Cost of the product per unit.
+        description: >
+          Cost of the product per unit.
+
       - name: supplier_id
-        description: Natural identifier of the supplier associated with the product.
+        description: >
+          Natural identifier of the supplier associated with the product.
+
       - name: supplier_name
-        description: Supplier name associated with the product.
+        description: >
+          Supplier name associated with the product.
+
 
   # ============================================================
   # DIM_STORES
   # ============================================================
 
   - name: dim_stores
+
     description: >
       Store dimension containing store identifiers, descriptive
       attributes, location information, opening date and store
       size classification.
+
     columns:
+
       - name: store_key
-        description: Surrogate key generated from the natural store ID.
+        description: >
+          Surrogate key generated from the natural store ID.
         tests:
           - not_null
           - unique
+
       - name: store_id
-        description: Natural identifier of the store.
+        description: >
+          Natural identifier of the store.
         tests:
           - not_null
           - unique
+
       - name: store_name
-        description: Name of the store.
+        description: >
+          Name of the store.
+
       - name: address
-        description: Standardized store address.
+        description: >
+          Standardized store address.
+
       - name: address_city
-        description: City of the store address.
+        description: >
+          City of the store address.
+
       - name: address_state
         description: >
           State of the store address. Used as the geographic
-          grouping field in reporting (there is no explicit
-          "region" column in this project).
+          grouping field in reporting.
+
       - name: address_country
-        description: Country of the store address.
+        description: >
+          Country of the store address.
+
       - name: opening_date
-        description: Date on which the store opened.
+        description: >
+          Date on which the store opened.
+
       - name: size_category
-        description: Store size classification derived from store square footage.
+        description: >
+          Store size classification derived from store square footage.
+
 
   # ============================================================
   # DIM_SUPPLIERS
   # ============================================================
 
   - name: dim_suppliers
+
     description: >
       Supplier dimension containing supplier identifiers,
       descriptive information, contact information, payment
       terms and supplier classification.
+
     columns:
+
       - name: supplier_key
-        description: Surrogate key generated from the natural supplier ID.
+        description: >
+          Surrogate key generated from the natural supplier ID.
         tests:
           - not_null
           - unique
+
       - name: supplier_id
-        description: Natural identifier of the supplier.
+        description: >
+          Natural identifier of the supplier.
         tests:
           - not_null
           - unique
+
       - name: supplier_name
-        description: Name of the supplier.
+        description: >
+          Name of the supplier.
+
       - name: contact_information
         description: >
           Consolidated supplier contact information including
           contact person, email, phone and address.
+
       - name: payment_terms
-        description: Payment terms agreed with the supplier.
+        description: >
+          Payment terms agreed with the supplier.
+
       - name: supplier_type
-        description: Classification or type of supplier.
+        description: >
+          Classification or type of supplier.
+
 
   # ============================================================
   # FACT_INVENTORY
   # ============================================================
 
   - name: fact_inventory
+
     description: >
       Inventory periodic snapshot fact at the grain of one row per
       product per store per date. Beginning inventory is derived
@@ -208,7 +316,9 @@ models:
       from the current snapshot, sold quantity comes from completed
       order items, and purchased quantity is inferred from
       inventory movement.
+
     columns:
+
       - name: inventory_key
         description: >
           Surrogate key uniquely identifying the product, store and
@@ -216,27 +326,37 @@ models:
         tests:
           - not_null
           - unique
+
       - name: product_key
-        description: Foreign key to dim_products identifying the product.
+        description: >
+          Foreign key to dim_products identifying the product.
         tests:
           - not_null
           - relationships:
-              to: ref('dim_products')
-              field: product_key
+              arguments:
+                to: ref('dim_products')
+                field: product_key
+
       - name: date_key
-        description: Foreign key to dim_date identifying the inventory date.
+        description: >
+          Foreign key to dim_date identifying the inventory date.
         tests:
           - not_null
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+
       - name: store_key
-        description: Foreign key to dim_stores identifying the store.
+        description: >
+          Foreign key to dim_stores identifying the store.
         tests:
           - not_null
           - relationships:
-              to: ref('dim_stores')
-              field: store_key
+              arguments:
+                to: ref('dim_stores')
+                field: store_key
+
       - name: supplier_key
         description: >
           Foreign key to dim_suppliers identifying the supplier
@@ -244,48 +364,61 @@ models:
         tests:
           - not_null
           - relationships:
-              to: ref('dim_suppliers')
-              field: supplier_key
+              arguments:
+                to: ref('dim_suppliers')
+                field: supplier_key
+
       - name: beginning_stock
         description: >
           Beginning inventory for the product at the store and
           date. Derived from the previous snapshot's ending
           inventory.
+
       - name: purchased_quantity
         description: >
           Quantity inferred from inventory movement using the
           relationship between beginning stock, ending stock and
           sold quantity.
+
       - name: sold_quantity
         description: >
           Quantity sold through completed orders for the product,
           store and inventory date.
+
       - name: ending_stock
         description: >
           Ending inventory for the product at the store and date,
           based on the current inventory snapshot.
+
       - name: inventory_value
-        description: Monetary value of the ending inventory.
+        description: >
+          Monetary value of the ending inventory.
+
       - name: stock_turnover_ratio
         description: >
           Stock turnover ratio calculated using sold quantity and
           average inventory, guarded against division by zero.
+
       - name: supplier_contribution_percentage
         description: >
           Percentage contribution of the supplier's purchased
           quantity to the total purchased quantity.
+
 
   # ============================================================
   # FACT_MARKETING_PERFORMANCE
   # ============================================================
 
   - name: fact_marketing_performance
+
     description: >
       Marketing performance fact at the grain of one row per
-      campaign per date. Measures campaign-attributed sales, new
-      customers acquired, repeat purchase rate, campaign cost and
-      ROI.
+      campaign per date. Measures campaign-attributed sales,
+      new customers acquired, repeat purchase rate, campaign
+      cost and ROI.
+
     columns:
+
       - name: marketing_performance_key
         description: >
           Surrogate key uniquely identifying a campaign and date
@@ -293,6 +426,7 @@ models:
         tests:
           - not_null
           - unique
+
       - name: campaign_key
         description: >
           Foreign key to dim_marketing_campaign identifying the
@@ -300,38 +434,54 @@ models:
         tests:
           - not_null
           - relationships:
-              to: ref('dim_marketing_campaign')
-              field: campaign_key
+              arguments:
+                to: ref('dim_marketing_campaign')
+                field: campaign_key
+
       - name: date_key
-        description: Foreign key to dim_date identifying the performance date.
+        description: >
+          Foreign key to dim_date identifying the performance date.
         tests:
           - not_null
           - relationships:
-              to: ref('dim_date')
-              field: date_key
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+
       - name: campaign_id
-        description: Natural identifier of the marketing campaign.
+        description: >
+          Natural identifier of the marketing campaign.
         tests:
           - not_null
+
       - name: full_date
-        description: Calendar date associated with the campaign performance record.
+        description: >
+          Calendar date associated with the campaign performance
+          record.
         tests:
           - not_null
+
       - name: total_sales_influenced
         description: >
           Total sales amount attributed to the campaign during the
           campaign period.
+
       - name: new_customers_acquired
         description: >
           Number of distinct customers whose first purchase
           occurred during the campaign period and who had no prior
           purchase before the campaign start date.
+
       - name: repeat_purchase_rate
         description: >
           Percentage of campaign-influenced customers who made a
           repeat purchase.
+
       - name: total_campaign_cost
-        description: Campaign budget used as the campaign cost for ROI calculation.
+        description: >
+          Campaign budget used as the campaign cost for ROI
+          calculation.
+
       - name: roi
         description: >
           Return on investment calculated from campaign-attributed
