@@ -1,189 +1,361 @@
 {{ config(
-    materialized = 'table',
-    schema = 'SILVER',
-    alias = 'SILVER_INVENTORY'
+    materialized='table'
 ) }}
 
--- Get inventory data from Bronze
+WITH product_history AS (
 
-with inventory_source as (
+    SELECT
 
-    select
-        product_id,
-
-        to_date(
-            regexp_substr(
-                _source_file,
-                '[0-9]{4}-[0-9]{2}-[0-9]{2}'
-            )
-        ) as source_snapshot_date,
-
-        raw_payload:stock_quantity::number as stock_quantity,
-        raw_payload:reorder_level::number as reorder_level,
-
-        _loaded_at,
-        _source_file
-
-    from {{ ref('br_products') }}
-
-    where product_id is not null
-
-),
-
--- Keep one record per product and snapshot date
-
-inventory_daily as (
-
-    select
+        product_history_key,
         product_id,
         source_snapshot_date,
         stock_quantity,
         reorder_level,
-        _loaded_at,
-        _source_file
+        supplier_id,
+        cost_price
 
-    from inventory_source
-
-    where source_snapshot_date is not null
-
-    qualify row_number() over (
-        partition by product_id, source_snapshot_date
-        order by _loaded_at desc, _source_file desc
-    ) = 1
+    FROM {{ ref('silver__products_history_data') }}
 
 ),
 
--- Calculate beginning stock from the previous snapshot
+-- 1. PRODUCT / STORE RELATIONSHIP
 
-stock_positions as (
+-- Product History has no store_id.
+-- Store association comes from Order Items.
 
-    select
+product_store AS (
+
+    SELECT DISTINCT
+
         product_id,
-        source_snapshot_date as snapshot_date,
+        store_id
 
-        lag(stock_quantity) over (
-            partition by product_id
-            order by source_snapshot_date
-        ) as beginning_stock,
+    FROM {{ ref('silver__order_items_data') }}
 
-        stock_quantity as ending_stock,
-
-        reorder_level
-
-    from inventory_daily
+    WHERE product_id IS NOT NULL
+      AND store_id IS NOT NULL
 
 ),
 
--- Calculate the quantity sold for each product on each day
+-- 2. PRODUCT HISTORY + PRODUCT/STORE RELATIONSHIP
 
--- Calculate the quantity sold for each product on each day
+-- Creates the product + store + snapshot date inventory grain.
 
-daily_sold as (
+inventory_snapshots AS (
 
-    select
-        oi_data.value:product_id::string as product_id,
+    SELECT
 
-        o.raw_payload:order_date::date as stock_date,
+        ph.product_id,
+        ps.store_id,
 
-        sum(
-            oi_data.value:quantity::number
-        ) as sold_quantity
+        TRY_TO_DATE(
+            ph.source_snapshot_date
+        ) AS inventory_date,
 
-    from {{ ref('br_orders') }} o
+        TRY_TO_NUMBER(
+            ph.stock_quantity
+        ) AS ending_stock,
 
-    cross join lateral flatten(
-        input => o.raw_payload:order_items
-    ) oi_data
+        TRY_TO_NUMBER(
+            ph.reorder_level
+        ) AS reorder_level,
 
-    where o.raw_payload:order_date is not null
-      and lower(o.raw_payload:order_status::string) = 'completed'
-      and oi_data.value:product_id::string is not null
+        ph.supplier_id,
 
-    group by
-        oi_data.value:product_id::string,
-        o.raw_payload:order_date::date
+        TRY_TO_DECIMAL(
+            ph.cost_price,
+            18,
+            2
+        ) AS cost_price
+
+    FROM product_history ph
+
+    INNER JOIN product_store ps
+        ON ph.product_id = ps.product_id
 
 ),
 
--- Calculate stock movement
+-- 3. BEGINNING INVENTORY
 
-inventory_calculation as (
+-- Previous snapshot ending stock for the same product/store.
 
-    select
-        sp.product_id,
-        sp.snapshot_date,
+with_beginning_inventory AS (
 
-        sp.beginning_stock,
-        sp.ending_stock,
+    SELECT
 
-        coalesce(
-            ds.sold_quantity,
+        product_id,
+        store_id,
+        inventory_date,
+
+        LAG(
+            ending_stock
+        ) OVER (
+
+            PARTITION BY
+                product_id,
+                store_id
+
+            ORDER BY
+                inventory_date
+
+        ) AS beginning_stock,
+
+        ending_stock,
+
+        reorder_level,
+        supplier_id,
+        cost_price
+
+    FROM inventory_snapshots
+
+),
+
+-- 4. COMPLETED ORDER ITEM SALES
+
+-- Only completed and delivered orders are considered as sales.
+
+completed_sales AS (
+
+    SELECT
+
+        product_id,
+        store_id,
+
+        TRY_TO_DATE(
+            order_date
+        ) AS inventory_date,
+
+        SUM(
+            TRY_TO_NUMBER(quantity)
+        ) AS sold_quantity
+
+    FROM {{ ref('silver__order_items_data') }}
+
+    WHERE LOWER(
+        TRIM(order_status)
+    ) IN (
+        'completed',
+        'delivered'
+    )
+
+      AND product_id IS NOT NULL
+      AND store_id IS NOT NULL
+      AND order_date IS NOT NULL
+
+    GROUP BY
+
+        product_id,
+        store_id,
+        TRY_TO_DATE(order_date)
+
+),
+
+-- 5. COMBINE STOCK + SALES
+
+-- Inventory records are retained even when there are no sales.
+
+combined AS (
+
+    SELECT
+
+        b.product_id,
+        b.store_id,
+        b.inventory_date,
+
+        b.beginning_stock,
+
+        COALESCE(
+            s.sold_quantity,
             0
-        ) as sold_quantity,
+        ) AS sold_quantity,
 
-        sp.reorder_level,
+        b.ending_stock,
 
-        case
-            when sp.beginning_stock is not null
-             and sp.ending_stock is not null
-            then greatest(
-                sp.ending_stock
-                - sp.beginning_stock
-                + coalesce(ds.sold_quantity, 0),
-                0
-            )
-            else null
-        end as purchased_quantity,
+        b.reorder_level,
+        b.supplier_id,
+        b.cost_price
 
-        case
-            when sp.beginning_stock is not null
-             and sp.ending_stock is not null
-            then
-                sp.ending_stock
-                - sp.beginning_stock
-                + coalesce(ds.sold_quantity, 0)
-            else null
-        end as stock_adjustment_quantity
+    FROM with_beginning_inventory b
 
-    from stock_positions sp
+    LEFT JOIN completed_sales s
 
-    left join daily_sold ds
-        on sp.product_id = ds.product_id
-       and sp.snapshot_date = ds.stock_date
+        ON b.product_id = s.product_id
+
+       AND b.store_id = s.store_id
+
+       AND b.inventory_date = s.inventory_date
 
 ),
 
--- Create the final inventory indicators
+-- 6. INVENTORY BUSINESS CALCULATIONS
 
-final_data as (
+calculated AS (
 
-    select
+    SELECT
+
         product_id,
-        snapshot_date,
+        store_id,
+        inventory_date,
 
         beginning_stock,
-        ending_stock,
+
         sold_quantity,
-        purchased_quantity,
+
+        ending_stock,
+
+        -- Purchased quantity
+        -- Ending Stock - Beginning Stock + Sold Quantity
+
+        CASE
+
+            WHEN beginning_stock IS NOT NULL
+             AND ending_stock IS NOT NULL
+
+            THEN
+                ending_stock
+                - beginning_stock
+                + sold_quantity
+
+            ELSE NULL
+
+        END AS purchased_quantity,
+
+        -- Inventory value
+
+        CASE
+
+            WHEN ending_stock IS NOT NULL
+             AND cost_price IS NOT NULL
+
+            THEN
+                ending_stock * cost_price
+
+            ELSE NULL
+
+        END AS inventory_value,
+
+        -- Average inventory
+
+        CASE
+
+            WHEN beginning_stock IS NOT NULL
+             AND ending_stock IS NOT NULL
+
+            THEN
+                (
+                    beginning_stock
+                    + ending_stock
+                ) / 2.0
+
+            ELSE NULL
+
+        END AS average_inventory,
+
         reorder_level,
+        supplier_id,
+        cost_price
 
-        case
-            when ending_stock is not null
-             and reorder_level is not null
-             and ending_stock < reorder_level
-            then true
-            else false
-        end as low_stock_flag,
+    FROM combined
 
-        case
-            when stock_adjustment_quantity < 0
-            then true
-            else false
-        end as negative_balance_flag
+),
 
-    from inventory_calculation
+-- 7. SNAPSHOT GAP
 
-)
+-- Previous inventory date for the same product/store.
 
-select *
-from final_data
+with_snapshot_gap AS (
+
+    SELECT
+
+        *,
+
+        LAG(
+            inventory_date
+        ) OVER (
+
+            PARTITION BY
+                product_id,
+                store_id
+
+            ORDER BY
+                inventory_date
+
+        ) AS previous_inventory_date
+
+    FROM calculated
+
+),
+
+-- 8. FINAL DERIVED METRICS
+
+final AS (
+
+    SELECT
+
+        -- Product + Store + Date
+
+        {{ dbt_utils.generate_surrogate_key([
+            'product_id',
+            'store_id',
+            'inventory_date'
+        ]) }} AS inventory_key,
+
+        product_id,
+        store_id,
+        inventory_date,
+
+        beginning_stock,
+        purchased_quantity,
+        sold_quantity,
+        ending_stock,
+
+        inventory_value,
+
+        -- Stock turnover ratio
+
+        CASE
+
+            WHEN average_inventory > 0
+
+            THEN
+                sold_quantity / average_inventory
+
+            ELSE NULL
+
+        END AS stock_turnover_ratio,
+
+        -- Snapshot gap flag
+
+        CASE
+
+            WHEN previous_inventory_date IS NULL
+
+            THEN FALSE
+
+            WHEN DATEDIFF(
+                DAY,
+                previous_inventory_date,
+                inventory_date
+            ) > 1
+
+            THEN TRUE
+
+            ELSE FALSE
+
+        END AS snapshot_gap_flag,
+
+        -- Snapshot gap days
+
+        CASE
+
+            WHEN previous_inventory_date IS NULL
+
+            THEN 0
+
+            ELSE DATEDIFF(
+                DAY,
+                previous_inventory_date,
+                inventory_date
+            )
+
+        END AS snapshot_gap
