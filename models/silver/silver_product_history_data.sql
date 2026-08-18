@@ -5,6 +5,15 @@
     on_schema_change='sync_all_columns'
 ) }}
 
+-- Full product attribute + stock snapshot history, one row per
+-- product per source_snapshot_date.
+--
+-- Downstream consumers:
+--   silver_inventory   (stock_quantity, reorder_level, supplier_id, cost_price)
+--   gold/dims/dim_products (product_name, category, brand, color, size,
+--                            unit_price, cost_price, supplier_id - latest
+--                            snapshot per product_id)
+
 WITH source_files AS (
 
     SELECT
