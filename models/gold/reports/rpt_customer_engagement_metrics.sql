@@ -1,0 +1,29 @@
+{{ config(
+    materialized = 'view'
+) }}
+
+SELECT
+
+    fmp.campaign_key,
+    dmc.campaign_id,
+    dmc.target_audience_segment,
+
+    MIN(fmp.date_key) AS campaign_start_date_key,
+    MAX(fmp.date_key) AS campaign_end_date_key,
+
+    SUM(fmp.new_customers_acquired) AS new_customers_acquired,
+    AVG(fmp.repeat_purchase_rate) AS repeat_purchase_rate,
+
+    AVG(fmp.total_sales_influenced) AS average_daily_sales_influenced,
+    SUM(fmp.total_sales_influenced) AS total_sales_influenced
+
+FROM {{ ref('fact_marketing_performance') }} fmp
+
+LEFT JOIN {{ ref('dim_marketing_campaign') }} dmc
+    ON fmp.campaign_key = dmc.campaign_key
+
+GROUP BY
+
+    fmp.campaign_key,
+    dmc.campaign_id,
+    dmc.target_audience_segment

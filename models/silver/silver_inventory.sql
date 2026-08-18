@@ -14,7 +14,7 @@ WITH product_history AS (
         supplier_id,
         cost_price
 
-    FROM {{ ref('silver__products_history_data') }}
+    FROM {{ ref('silver_product_history_data') }}
 
 ),
 
@@ -30,7 +30,7 @@ product_store AS (
         product_id,
         store_id
 
-    FROM {{ ref('silver__order_items_data') }}
+    FROM {{ ref('silver_order_items') }}
 
     WHERE product_id IS NOT NULL
       AND store_id IS NOT NULL
@@ -120,20 +120,13 @@ completed_sales AS (
 
         product_id,
         store_id,
+        order_date AS inventory_date,
 
-        TRY_TO_DATE(
-            order_date
-        ) AS inventory_date,
+        SUM(quantity) AS sold_quantity
 
-        SUM(
-            TRY_TO_NUMBER(quantity)
-        ) AS sold_quantity
+    FROM {{ ref('silver_order_items') }}
 
-    FROM {{ ref('silver__order_items_data') }}
-
-    WHERE LOWER(
-        TRIM(order_status)
-    ) IN (
+    WHERE LOWER(order_status) IN (
         'completed',
         'delivered'
     )
@@ -146,7 +139,7 @@ completed_sales AS (
 
         product_id,
         store_id,
-        TRY_TO_DATE(order_date)
+        order_date
 
 ),
 
@@ -259,7 +252,46 @@ calculated AS (
 
 ),
 
--- 7. SNAPSHOT GAP
+-- 7. SUPPLIER CONTRIBUTION
+
+-- Supplier contribution is based on purchased quantity
+-- against total purchased quantity for the inventory date.
+
+supplier_contribution AS (
+
+    SELECT
+
+        *,
+
+        CASE
+
+            WHEN SUM(
+                purchased_quantity
+            ) OVER (
+                PARTITION BY
+                    inventory_date
+            ) > 0
+
+            THEN
+                (
+                    purchased_quantity
+                    / SUM(
+                        purchased_quantity
+                    ) OVER (
+                        PARTITION BY
+                            inventory_date
+                    )
+                ) * 100
+
+            ELSE 0
+
+        END AS supplier_contribution_percentage
+
+    FROM calculated
+
+),
+
+-- 8. SNAPSHOT GAP
 
 -- Previous inventory date for the same product/store.
 
@@ -282,11 +314,11 @@ with_snapshot_gap AS (
 
         ) AS previous_inventory_date
 
-    FROM calculated
+    FROM supplier_contribution
 
 ),
 
--- 8. FINAL DERIVED METRICS
+-- 9. FINAL INVENTORY METRICS
 
 final AS (
 
@@ -324,6 +356,10 @@ final AS (
 
         END AS stock_turnover_ratio,
 
+        -- Supplier contribution percentage
+
+        supplier_contribution_percentage,
+
         -- Snapshot gap flag
 
         CASE
@@ -358,4 +394,67 @@ final AS (
                 inventory_date
             )
 
-        END AS snapshot_gap
+        END AS snapshot_gap_days,
+
+        -- Low stock flag
+
+        CASE
+
+            WHEN ending_stock IS NOT NULL
+             AND reorder_level IS NOT NULL
+             AND ending_stock < reorder_level
+
+            THEN TRUE
+
+            ELSE FALSE
+
+        END AS low_stock_flag,
+
+        -- Negative inferred purchase flag
+
+        CASE
+
+            WHEN purchased_quantity < 0
+
+            THEN TRUE
+
+            ELSE FALSE
+
+        END AS negative_inferred_purchase_flag,
+
+        reorder_level,
+        supplier_id
+
+    FROM with_snapshot_gap
+
+)
+
+-- FINAL SILVER INVENTORY TABLE
+
+SELECT
+
+    inventory_key,
+
+    product_id,
+    store_id,
+    inventory_date,
+
+    beginning_stock,
+    purchased_quantity,
+    sold_quantity,
+    ending_stock,
+
+    inventory_value,
+    stock_turnover_ratio,
+    supplier_contribution_percentage,
+
+    reorder_level,
+    supplier_id,
+
+    snapshot_gap_flag,
+    snapshot_gap_days,
+
+    low_stock_flag,
+    negative_inferred_purchase_flag
+
+FROM final
