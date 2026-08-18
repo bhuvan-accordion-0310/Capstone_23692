@@ -344,3 +344,5 @@ SELECT
     performance_issue_flag
 
 FROM deduplicated
+
+WHERE store_id IS NOT NULL

@@ -507,3 +507,5 @@ SELECT
     source_snapshot_date
 
 FROM deduplicated
+
+where customer_id is not null

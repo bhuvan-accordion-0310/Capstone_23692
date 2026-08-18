@@ -270,3 +270,5 @@ SELECT
     source_snapshot_date
 
 FROM deduplicated
+
+where product_id is not null

@@ -1,0 +1,231 @@
+version: 2
+
+models:
+
+  # ============================================================
+  # SILVER CUSTOMERS
+  # ============================================================
+
+  - name: silver_customers
+    description: "Cleaned and standardized customer data for downstream reporting and analytics."
+
+    columns:
+
+      - name: customer_id
+        description: "Unique customer identifier."
+        tests:
+          - not_null
+          - unique
+
+
+  # ============================================================
+  # SILVER PRODUCTS
+  # ============================================================
+
+  - name: silver_products
+    description: "Cleaned and standardized current product data including product hierarchy, pricing, stock, supplier relationship, and derived product metrics."
+
+    columns:
+
+      - name: product_id
+        description: "Unique product natural key."
+        tests:
+          - not_null
+          - unique
+
+
+  # ============================================================
+  # SILVER PRODUCT HISTORY
+  # ============================================================
+
+  - name: silver_product_history_data
+    description: "Historical product snapshots used to derive inventory positions across consecutive product snapshot dates."
+
+    columns:
+
+      - name: product_history_key
+        description: "Surrogate key identifying a product within a specific source snapshot."
+        tests:
+          - not_null
+          - unique
+
+      - name: product_id
+        description: "Product natural key."
+        tests:
+          - not_null
+
+      - name: source_snapshot_date
+        description: "Date represented by the source product snapshot."
+        tests:
+          - not_null
+
+
+  # ============================================================
+  # SILVER ORDER ITEMS
+  # ============================================================
+
+  - name: silver_order_items
+    description: "Cleaned order-item grain data used for sales, inventory, and downstream fact calculations."
+
+    columns:
+
+      - name: order_item_key
+        description: "Surrogate key identifying an individual order item."
+        tests:
+          - not_null
+          - unique
+
+      - name: order_id
+        description: "Order natural key."
+        tests:
+          - not_null
+
+      - name: product_id
+        description: "Product associated with the order item."
+        tests:
+          - not_null
+
+      - name: quantity
+        description: "Quantity of the product included in the order item."
+
+
+  # ============================================================
+  # SILVER ORDERS
+  # ============================================================
+
+  - name: silver_orders
+    description: "Cleaned and aggregated order data at order grain, including profitability, timing, and delivery metrics."
+
+    columns:
+
+      - name: order_id
+        description: "Unique order natural key."
+        tests:
+          - not_null
+          - unique
+
+
+  # ============================================================
+  # SILVER STORES
+  # ============================================================
+
+  - name: silver_stores
+    description: "Cleaned and standardized store data including location, store classification, age, and performance metrics."
+
+    columns:
+
+      - name: store_id
+        description: "Unique store natural key."
+        tests:
+          - not_null
+          - unique
+
+
+  # ============================================================
+  # SILVER SUPPLIERS
+  # ============================================================
+
+  - name: silver_suppliers
+    description: "Cleaned and standardized supplier data including supplier identity, contact information, payment terms, and supplier type."
+
+    columns:
+
+      - name: supplier_id
+        description: "Unique supplier natural key."
+        tests:
+          - not_null
+          - unique
+
+
+  # ============================================================
+  # SILVER EMPLOYEES
+  # ============================================================
+
+  - name: silver_employees
+    description: "Cleaned and standardized employee data used for downstream reporting and store-related analysis."
+
+    columns:
+
+      - name: employee_id
+        description: "Unique employee natural key."
+        tests:
+          - not_null
+          - unique
+
+
+  # ============================================================
+  # SILVER CAMPAIGNS
+  # ============================================================
+
+  - name: silver__campaigns_data
+    description: "Cleaned and standardized marketing campaign data including campaign duration, target-audience segmentation, and campaign financial metrics."
+
+    columns:
+
+      - name: campaign_id
+        description: "Unique campaign natural key."
+        tests:
+          - not_null
+          - unique
+
+
+  # ============================================================
+  # SILVER INVENTORY
+  # ============================================================
+
+  - name: silver__inventory_data
+    description: "Daily product inventory positions derived from historical product snapshots and completed order items."
+
+    columns:
+
+      - name: inventory_key
+        description: "Surrogate key identifying a product inventory position for a specific inventory date."
+        tests:
+          - not_null
+          - unique
+
+      - name: product_id
+        description: "Product associated with the inventory position."
+        tests:
+          - not_null
+
+      - name: inventory_date
+        description: "Date of the inventory position."
+        tests:
+          - not_null
+
+      - name: beginning_stock
+        description: "Stock quantity from the previous product snapshot."
+
+      - name: purchased_quantity
+        description: "Inferred purchased quantity calculated as ending stock minus beginning stock plus sold quantity."
+
+      - name: sold_quantity
+        description: "Quantity sold from completed order items."
+
+      - name: ending_stock
+        description: "Stock quantity recorded in the current product snapshot."
+
+      - name: inventory_value
+        description: "Ending stock multiplied by product cost price."
+
+      - name: stock_turnover_ratio
+        description: "Sold quantity divided by average inventory."
+
+      - name: reorder_level
+        description: "Product reorder threshold."
+
+      - name: supplier_id
+        description: "Supplier associated with the product."
+
+      - name: snapshot_gap_flag
+        description: "Indicates that there is a gap between consecutive product snapshots."
+
+      - name: snapshot_gap_days
+        description: "Number of days between the previous product snapshot and the current inventory date."
+
+      - name: low_stock_flag
+        description: "Indicates whether ending stock is below the reorder level."
+
+      - name: negative_inferred_purchase_flag
+        description: "Indicates that inferred purchased quantity is negative."

@@ -198,3 +198,5 @@ SELECT
     demographics
 
 FROM deduplicated
+
+WHERE campaign_id IS NOT NULL
