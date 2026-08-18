@@ -1,10 +1,15 @@
--- This cript is for setting a structure for the schema name
-
-{% macro generate_schema_name (custom_schema_name, node) -%}
-    {%- if custom_schema_name is none -%}
-        {{ target.schema | trim }}
-    {%- else -%}
-        {{ custom_schema_name | trim }}
+{% macro generate_schema_name(custom_schema_name, node) -%}
+ 
+    {%- set default_schema = target.schema -%}
+    {%- set dbt_env = env_var("DBT_CLOUD_ENVIRONMENT_NAME") -%}
+ 
+    {%- if dbt_env == "Development" -%} {{ custom_schema_name | trim }}
+    {%- elif custom_schema_name is none -%} {{ default_schema | trim }}
+    {%- elif custom_schema_name[:13] ==  "DBT_CLOUD_PR_" -%} {{ default_schema | trim }}
+    {%- elif target.name ==  "PROD_CI" -%} {{ default_schema | trim }}
+    {%- elif custom_schema_name is not none -%} {{ custom_schema_name | trim }}
+    {%- else -%} {{ default_schema | trim }}_{{ custom_schema_name | trim }}
     {%- endif -%}
-
+ 
 {%- endmacro %}
+ 
