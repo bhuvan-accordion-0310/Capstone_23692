@@ -33,6 +33,9 @@ models:
     bronze:
       +schema: "{{ env_var('DBT_BRONZE_SCHEMA') }}"
 
+    # final changes done
+    
+
       
 
 
